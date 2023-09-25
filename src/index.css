@@ -1,6 +1,6 @@
-/* @import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&display=swap"); */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&display=swap');
 
-@import url('https://fonts.googleapis.com/css2?family=Elsie:wght@400;900&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Elsie:wght@400;900&display=swap'); */
 
 * {
   margin: 0;
@@ -13,8 +13,8 @@ html {
 }
 
 body {
-  /* font-family: 'Cinzel Decorative', cursive; */
-  font-family: 'Elsie', cursive;
+  font-family: 'Cinzel Decorative', cursive;
+  /* font-family: 'Elsie', cursive; */
   font-size: 2rem;
   height: 100vh;
   color: #222;
