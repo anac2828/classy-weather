@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 
 function getWeatherIcon(wmoCode) {
   const icons = new Map([
@@ -36,158 +36,131 @@ function convertToFlag(countryCode) {
 
 // ***** MAIN AP *********///
 
-class App extends React.Component {
-  state = {
-    location: '',
-    isLoading: false,
-    displayLocation: '',
-    weather: {},
-  };
-  // constructor is not necessary when using an arrow function as the method
-  // constructor(props) {
-  //   super(props);
-  //   this.state = {
-  //     location: 'anaheim',
-  //     isLoading: false,
-  //     displayLocation: '',
-  //     weather: {},
-  //   };
-  //   this.fetchWeather = this.fetchWeather.bind(this);
-  // }
+export default function App() {
+  const [location, setLocation] = useState(() =>
+    localStorage.getItem('location')
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [displayLocation, setDisplayLocation] = useState('');
+  const [weather, setWeather] = useState({});
 
-  // when using a arrow function as a method the 'this' key word does not need to be binded.
-  // async fetchWeather() {
-  fetchWeather = async () => {
-    if (this.state.location.length < 2) return this.setState({ weather: {} });
+  useEffect(() => {
+    const controller = new AbortController();
+    async function fectchWeather() {
+      try {
+        setIsLoading(true);
+        // 1) Getting location (geocoding)
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${location}`
+        );
+        const geoData = await geoRes.json();
 
-    try {
-      this.setState({ isLoading: true });
-      // 1) Getting location (geocoding)
-      const geoRes = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${this.state.location}`
-      );
-      const geoData = await geoRes.json();
+        if (!geoData.results) throw new Error('Location not found');
 
-      if (!geoData.results) throw new Error('Location not found');
+        const { latitude, longitude, timezone, name, country_code } =
+          geoData.results.at(0);
+        setDisplayLocation(`${name} ${convertToFlag(country_code)}`);
 
-      const { latitude, longitude, timezone, name, country_code } =
-        geoData.results.at(0);
-      this.setState({
-        displayLocation: `${name} ${convertToFlag(country_code)}`,
-      });
-
-      // 2) Getting actual weather
-      const weatherRes = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&timezone=${timezone}&temperature_unit=fahrenheit&daily=weathercode,temperature_2m_max,temperature_2m_min`
-      );
-      const weatherData = await weatherRes.json();
-      this.setState({ weather: weatherData.daily });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      this.setState({ isLoading: false });
+        // 2) Getting actual weather
+        const weatherRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&timezone=${timezone}&temperature_unit=fahrenheit&daily=weathercode,temperature_2m_max,temperature_2m_min`
+        );
+        const weatherData = await weatherRes.json();
+        setWeather(weatherData.daily);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  };
+    if (location.length < 2) {
+      setWeather({});
+      return;
+    }
 
-  setLocation = (e) => this.setState({ location: e.target.value });
+    fectchWeather();
 
-  // It is called after the component has been mounted but not on rerenders
-  componentDidMount() {
-    // this.fetchWeather();
+    return function () {
+      controller.abort();
+    };
+  }, [location]);
 
-    this.setState({ location: localStorage.getItem('location' || '') });
+  function handleSetLocation(e) {
+    setLocation(e.target.value);
   }
 
-  // Gets access to previous props and state. It is not called on mount. Only on rerenders
-  componentDidUpdate(prevProps, prevState) {
-    if (this.state.location !== prevState.location) {
-      this.fetchWeather();
+  // Will be called when location changes
+  useEffect(() => {
+    if (!location) return;
+    localStorage.setItem('location', location);
+    setLocation('');
+  }, [location]);
 
-      localStorage.setItem('location', this.state.location);
-    }
-  }
+  return (
+    <div className='app'>
+      <h1>Classy Weather</h1>
+      <Input onSetLocation={handleSetLocation} location={location} />
+      {/* <button onClick={handleFetchWeather}>Get weather</button> */}
 
-  render() {
-    return (
-      <div className='app'>
-        <h1>Classy Weather</h1>
-        <Input
-          location={this.state.location}
-          onSetLocation={this.setLocation}
-        />
-        <button onClick={this.fetchWeather}>Get weather</button>
+      {isLoading && <p className='loader'>Loading...</p>}
 
-        {this.state.isLoading && <p className='loader'>Loading...</p>}
+      {weather.weathercode && (
+        <Weather location={displayLocation} weather={weather} />
+      )}
+    </div>
+  );
+}
 
-        {this.state.weather.weathercode && (
-          <Weather
-            location={this.state.displayLocation}
-            weather={this.state.weather}
+// **** INPUT *****
+function Input({ location, onSetLocation }) {
+  return (
+    <input
+      type='text'
+      placeholder='Search from location'
+      value={location}
+      onChange={onSetLocation}
+    />
+  );
+}
+
+// **** WEATHER ***
+function Weather({ weather, location }) {
+  const {
+    temperature_2m_max: max,
+    temperature_2m_min: min,
+    time: dates,
+    weathercode: codes,
+  } = weather;
+
+  return (
+    <div>
+      <h2>Weather {location}</h2>
+      <ul className='weather'>
+        {dates.map((date, i) => (
+          <Day
+            date={date}
+            max={max.at(i)}
+            min={min.at(i)}
+            code={codes.at(i)}
+            isToday={i === 0}
+            key={Math.random()}
           />
-        )}
-      </div>
-    );
-  }
+        ))}
+      </ul>
+    </div>
+  );
 }
 
-export default App;
-
-class Input extends React.Component {
-  render() {
-    return (
-      <input
-        type='text'
-        placeholder='Search from location'
-        value={this.props.location}
-        onChange={this.props.onSetLocation}
-      />
-    );
-  }
-}
-
-class Weather extends React.Component {
-  // Similar to clean up function. Will run when the component unmounts
-  componentWillUnmount() {
-    console.log('Weather will unmount');
-  }
-
-  render() {
-    const {
-      temperature_2m_max: max,
-      temperature_2m_min: min,
-      time: dates,
-      weathercode: codes,
-    } = this.props.weather;
-    return (
-      <div>
-        <h2>Weather {this.props.location}</h2>
-        <ul className='weather'>
-          {dates.map((date, i) => (
-            <Day
-              date={date}
-              max={max.at(i)}
-              min={min.at(i)}
-              code={codes.at(i)}
-              isToday={i === 0}
-            />
-          ))}
-        </ul>
-      </div>
-    );
-  }
-}
+// **** DAY ***
 // When there is not a state or a function handler that needs to be bind, you do not need the contructor method.
-class Day extends React.Component {
-  render() {
-    const { date, max, min, code, isToday } = this.props;
-    return (
-      <li className='day'>
-        <span>{getWeatherIcon(code)}</span>
-        <p>{formatDay(date)}</p>
-        <p>
-          {Math.floor(min)}&deg; &mdash; <strong>{Math.ceil(max)}&deg;</strong>
-        </p>
-      </li>
-    );
-  }
+function Day({ date, max, min, code }) {
+  return (
+    <li className='day'>
+      <span>{getWeatherIcon(code)}</span>
+      <p>{formatDay(date)}</p>
+      <p>
+        {Math.floor(min)}&deg; &mdash; <strong>{Math.ceil(max)}&deg;</strong>
+      </p>
+    </li>
+  );
 }
