@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'
 
-function getWeatherIcon(wmoCode) {
+function getWeatherIcon(weatherCode) {
   const icons = new Map([
     [[0], '☀️'],
     [[1], '🌤'],
@@ -12,89 +12,86 @@ function getWeatherIcon(wmoCode) {
     [[71, 73, 75, 77, 85, 86], '🌨'],
     [[95], '🌩'],
     [[96, 99], '⛈'],
-  ]);
+  ])
 
-  const arr = [...icons.keys()].find((key) => key.includes(wmoCode));
-  if (!arr) return 'NOT FOUND';
-  return icons.get(arr);
+  // Returns the key that includes the weatherCode
+  const arr = [...icons.keys()].find((key) => key.includes(weatherCode))
+  if (!arr) return 'NOT FOUND'
+
+  return icons.get(arr)
 }
 
 function formatDay(dateStr) {
   return new Intl.DateTimeFormat('en-us', {
     weekday: 'short',
-  }).format(new Date(dateStr));
+  }).format(new Date(dateStr + 'T00:00:00'))
 }
 
 function convertToFlag(countryCode) {
   const codePoints = countryCode
     .toUpperCase()
     .split('')
-    .map((char) => 127397 + char.charCodeAt());
+    .map((char) => 127397 + char.charCodeAt())
 
-  return String.fromCodePoint(...codePoints);
+  return String.fromCodePoint(...codePoints)
 }
 
 // ***** MAIN AP *********///
 
 export default function App() {
-  const [location, setLocation] = useState(() =>
-    localStorage.getItem('location')
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [displayLocation, setDisplayLocation] = useState('');
-  const [weather, setWeather] = useState({});
+  const [location, setLocation] = useState(
+    () => localStorage.getItem('location') || 'anaheim'
+  )
+  const [isLoading, setIsLoading] = useState(false)
+  const [displayLocation, setDisplayLocation] = useState('')
+  const [weather, setWeather] = useState({})
 
   useEffect(() => {
-    const controller = new AbortController();
+    const controller = new AbortController()
     async function fectchWeather() {
       try {
-        setIsLoading(true);
+        setIsLoading(true)
         // 1) Getting location (geocoding)
         const geoRes = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${location}`
-        );
-        const geoData = await geoRes.json();
+        )
+        const geoData = await geoRes.json()
 
-        if (!geoData.results) throw new Error('Location not found');
+        if (!geoData.results) throw new Error('Location not found')
 
         const { latitude, longitude, timezone, name, country_code } =
-          geoData.results.at(0);
-        setDisplayLocation(`${name} ${convertToFlag(country_code)}`);
+          geoData.results.at(0)
+        setDisplayLocation(`${name} ${convertToFlag(country_code)}`)
 
         // 2) Getting actual weather
         const weatherRes = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&timezone=${timezone}&temperature_unit=fahrenheit&daily=weathercode,temperature_2m_max,temperature_2m_min`
-        );
-        const weatherData = await weatherRes.json();
-        setWeather(weatherData.daily);
+        )
+        const weatherData = await weatherRes.json()
+
+        setWeather(weatherData.daily)
       } catch (err) {
-        console.error(err);
+        console.error(err)
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
     }
     if (location.length < 2) {
-      setWeather({});
-      return;
+      setWeather({})
+      return
     }
 
-    fectchWeather();
+    fectchWeather()
 
     return function () {
-      controller.abort();
-    };
-  }, [location]);
+      controller.abort()
+    }
+  }, [location])
 
   function handleSetLocation(e) {
-    setLocation(e.target.value);
+    setLocation(e.target.value)
+    localStorage.setItem('location', e.target.value)
   }
-
-  // Will be called when location changes
-  useEffect(() => {
-    if (!location) return;
-    localStorage.setItem('location', location);
-    setLocation('');
-  }, [location]);
 
   return (
     <div className='app'>
@@ -108,10 +105,10 @@ export default function App() {
         <Weather location={displayLocation} weather={weather} />
       )}
     </div>
-  );
+  )
 }
 
-// **** INPUT *****
+// **** INPUT Component *****
 function Input({ location, onSetLocation }) {
   return (
     <input
@@ -120,7 +117,7 @@ function Input({ location, onSetLocation }) {
       value={location}
       onChange={onSetLocation}
     />
-  );
+  )
 }
 
 // **** WEATHER ***
@@ -130,7 +127,7 @@ function Weather({ weather, location }) {
     temperature_2m_min: min,
     time: dates,
     weathercode: codes,
-  } = weather;
+  } = weather
 
   return (
     <div>
@@ -148,19 +145,19 @@ function Weather({ weather, location }) {
         ))}
       </ul>
     </div>
-  );
+  )
 }
 
 // **** DAY ***
 // When there is not a state or a function handler that needs to be bind, you do not need the contructor method.
-function Day({ date, max, min, code }) {
+function Day({ date, max, min, code, isToday }) {
   return (
     <li className='day'>
       <span>{getWeatherIcon(code)}</span>
-      <p>{formatDay(date)}</p>
+      <p>{isToday ? 'Today' : formatDay(date)}</p>
       <p>
         {Math.floor(min)}&deg; &mdash; <strong>{Math.ceil(max)}&deg;</strong>
       </p>
     </li>
-  );
+  )
 }
